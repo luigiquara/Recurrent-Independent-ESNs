@@ -1,0 +1,8 @@
+*.out
+*.pt
+saved_models
+wandb
+src/acds
+src/simple_esn
+src/test
+src/__pycache__
