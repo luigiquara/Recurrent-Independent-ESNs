@@ -34,7 +34,7 @@ class GroupLinearLayer(nn.Module):
         out = torch.bmm(perm_x, self.w).permute(1, 0, 2)
 
         if self.normalize:
-            norm_out = self.batch_norm(out.reshape(-1, x.shape[2]))
+            norm_out = self.batch_norm(out.reshape(-1, out.shape[2]))
             out = norm_out.reshape(out.shape)
 
         return out
@@ -83,7 +83,7 @@ class RIM(nn.Module):
 
         # define communication attention layers
         self.comm_key = GroupLinearLayer(hidden_size, num_comm_heads * key_comm_size, num_units)
-        self.comm_value = GroupLinearLayer(hidden_size, num_comm_heads * value_comm_size, num_units)
+        self.comm_value = GroupLinearLayer(hidden_size, num_comm_heads * value_comm_size, num_units, normalize=True)
         self.comm_query = GroupLinearLayer(hidden_size, num_comm_heads * query_comm_size, num_units)
         self.communication_attention_dropout = nn.Dropout(p = comm_dropout)
         # needed to get the right shapes
@@ -122,9 +122,9 @@ class RIM(nn.Module):
         if self.use_input_attention:
             att_x, mask = self.input_attention(x, hs)
         else:
-            print('\n\nNOT USING INPUT ATTENTION\n\n')
+            #print('\n\nNOT USING INPUT ATTENTION\n\n')
             att_x = x
-            mask = torch.ones(x.shape[0], self.num_units)
+            mask = torch.ones(x.shape[0], self.num_units).to(self.device)
         h_old = hs
 
         # listify the input and the hs
@@ -146,9 +146,6 @@ class RIM(nn.Module):
         # compute communication attention
         if self.use_comm_attention:
             h_new = self.communication_attention(h_new, self.alpha)
-        else:
-            print('\n\nNOT USING COMMUNICATION ATTENTION\n\n')
-            h_new = h_old
 
         # update the hidden state for active units
         # while keeping the old hidden state for inactive ones
