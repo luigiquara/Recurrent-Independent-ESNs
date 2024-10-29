@@ -31,14 +31,14 @@ def train(model, train_loader, val_loaders, loss_fn, opt, epochs, device, log, s
     model.to(device)
 
     for epoch in range(epochs):
-        epoch_loss = 0.
-        iter_ctr = 0.
+        epoch_loss = 0.0
+        iter_ctr = 0.0
         train_accuracy = 0
 
         print(f'Epoch {epoch+1}')
 
         for x, y in tqdm(train_loader):
-            x = x.to(device)
+            x = x.squeeze().to(device)
             x = x.view(x.shape[0], x.shape[1]**2, -1)
             y = y.to(device)
 
@@ -57,7 +57,7 @@ def train(model, train_loader, val_loaders, loss_fn, opt, epochs, device, log, s
             correct = preds == y.long()
             train_accuracy += correct.sum().item()
 
-            iter_ctr += 1.
+            iter_ctr += 1.0
             ctr += 1
 
         # evaluate on validation data
@@ -155,7 +155,6 @@ def run(args):
         args.save_dir += wandb.run.name + '/'
     else: args.save_dir += datetime.now().strftime('%d%m%Y-%H%M%S')
     if not os.path.exists(args.save_dir): os.mkdir(args.save_dir)
-
 
     loss_fn = nn.CrossEntropyLoss()
     opt = Adam(model.parameters(), lr=args.lr)
