@@ -1,10 +1,11 @@
 import argparse
 from datetime import datetime
-import numpy as np
+import os
 import random
 from tqdm import tqdm
 import wandb
 
+import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -77,7 +78,7 @@ def train(model, train_loader, val_loaders, loss_fn, opt, epochs, device, log, s
             wandb.log({'loss': epoch_loss/iter_ctr})
             wandb.log(val_losses)
             wandb.log(val_accs)
-            wandb.log(epoch)
+            wandb.log({'epoch': epoch})
 
         # saving the best model
         if val_accs['val_accuracy14'] > best_acc:
@@ -153,6 +154,7 @@ def run(args):
         )
         args.save_dir += wandb.run.name + '/'
     else: args.save_dir += datetime.now().strftime('%d%m%Y-%H%M%S')
+    if not os.path.exists(args.save_dir): os.mkdir(args.save_dir)
 
 
     loss_fn = nn.CrossEntropyLoss()
