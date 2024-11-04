@@ -70,7 +70,7 @@ def train(model, train_loader, val_loaders, loss_fn, opt, epochs, device, log, s
 
         # printing current info
         log_str = f'epoch loss: {epoch_loss/iter_ctr}'
-        for key, value in val_accs.items(): log_str += f' {key}: {value}'
+        for key, value in val_accs.items(): log_str += f' {key}: {value:.2f}'
         print(log_str)
 
         # log to wandb
@@ -118,7 +118,7 @@ def evaluate(model, loader, loss_fn, device):
             correct += (preds == y.long()).sum().item()
             total += len(preds)
 
-            iter_ctr += 1.
+            iter_ctr += 1.0
 
         loss = epoch_loss / iter_ctr
         accuracy = correct / total * 100.0
@@ -137,6 +137,8 @@ def run(args):
         args.use_comm_attention, args.num_comm_heads, args.key_comm_size, args.query_comm_size, args.value_comm_size, args.comm_dropout, args.alpha,
         args.hidden_size, args.input_scaling, args.spectral_radius, args.leaky
     )
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f'Number of parameters: {n_params}')
 
     # load the data
     train_loader, val_loader, _ = get_mnist_data(root=args.datapath, image_size=args.size, batch_size=args.batch_size, subset_size=args.subset_size)
@@ -202,7 +204,7 @@ if __name__ == '__main__':
     data_args.add_argument('--size', type=int, default=14)
     data_args.add_argument('--subset_size', type=int, default=-1)
     data_args.add_argument('--input_size', type=int, default=1)
-    data_args.add_argument('--batch_size', type=int, default=32)
+    data_args.add_argument('--batch_size', type=int, default=64)
 
     # training arguments
     train_args = parser.add_argument_group('Training arguments')

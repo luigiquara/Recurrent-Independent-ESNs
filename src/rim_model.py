@@ -1,4 +1,5 @@
 import math
+import time
 
 import torch
 from torch import nn
@@ -98,6 +99,7 @@ class RIM(nn.Module):
         )
 
     def forward(self, x):
+        # initialize hidden state for each batch
         hs = torch.ones(x.shape[0], self.num_units, self.hidden_size) * 0.001
         hs = hs.to(self.device)
 
@@ -112,6 +114,7 @@ class RIM(nn.Module):
         return y_pred
 
     def single_timestep_forward(self, x, hs):
+        h_old = hs
 
         # concat null input
         x = x.unsqueeze(1)
@@ -122,10 +125,8 @@ class RIM(nn.Module):
         if self.use_input_attention:
             att_x, mask = self.input_attention(x, hs)
         else:
-            #print('\n\nNOT USING INPUT ATTENTION\n\n')
             att_x = x
             mask = torch.ones(x.shape[0], self.num_units).to(self.device)
-        h_old = hs
 
         # listify the input and the hs
         # to pass the correct data to the corresponding module
@@ -145,7 +146,7 @@ class RIM(nn.Module):
 
         # compute communication attention
         if self.use_comm_attention:
-            h_new = self.communication_attention(h_new, self.alpha)
+            h_new = self.communication_attention(h_new, mask, self.alpha)
 
         # update the hidden state for active units
         # while keeping the old hidden state for inactive ones
@@ -158,6 +159,7 @@ class RIM(nn.Module):
         v = self.input_value(x)
         q = self.input_query(hs)
 
+        # standard attention computation
         attention_scores = torch.matmul(q, k.transpose(-1, -2) / math.sqrt(self.key_input_size))
         attention_scores = F.softmax(attention_scores, dim = -1)
 
@@ -175,7 +177,6 @@ class RIM(nn.Module):
         for i, row in enumerate(smallest_k.indices):
             for elem in row:
                 mask_[i][elem] = 1
-
         assert (mask == mask_).all()
         '''
 
@@ -185,13 +186,16 @@ class RIM(nn.Module):
         masked_input = attention_scores * mask.unsqueeze(2)
         return masked_input, mask
 
-    def communication_attention(self, hs, alpha):
+    def communication_attention(self, hs, mask, alpha):
         k = self.view_multihead(self.comm_key(hs), self.num_comm_heads, self.key_comm_size)
         v = self.view_multihead(self.comm_value(hs), self.num_comm_heads, self.value_comm_size)
         q = self.view_multihead(self.comm_query(hs), self.num_comm_heads, self.query_comm_size)
 
-        # compute attention with dropout
+        # mask to get only the active modules
         attention_scores = torch.matmul(q, k.transpose(-1, -2) / math.sqrt(self.key_comm_size))
+        attention_scores = attention_scores * mask.unsqueeze(-1)
+
+        # standard attention with dropout
         attention_scores = F.softmax(attention_scores, dim = -1)
         attention_scores = self.communication_attention_dropout(attention_scores)
         attention_scores = torch.matmul(attention_scores, v)
