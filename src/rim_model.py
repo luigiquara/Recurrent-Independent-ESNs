@@ -99,6 +99,10 @@ class RIM(nn.Module):
             nn.Linear(200, 10)
         )
 
+        print('Input Attention: ', end=''); print('TRUE' if use_input_attention else 'FALSE')
+        print('Communication Attention: ', end=''); print('TRUE' if use_comm_attention else 'FALSE')
+        print('Unitary value_comm Matrix: ', end=''); print('TRUE' if not use_value_comm else 'FALSE')
+
     def forward(self, x):
         # initialize hidden state for each batch
         hs = torch.ones(x.shape[0], self.num_units, self.hidden_size) * 0.001
@@ -193,16 +197,18 @@ class RIM(nn.Module):
 
         if self.use_value_comm:
             v = self.view_multihead(self.comm_value(hs), self.num_comm_heads, self.value_comm_size)
+            breakpoint()
+        # remove value_comm matrix
+        # i.e. it is unitary matrix and it's not updated during training
         else:
-            v = hs
+            v = [hs for _ in range(self.num_comm_heads)]
+            v = torch.stack(v, dim=1)
 
-
-        # mask to get only the active modules
-        attention_scores = torch.matmul(q, k.transpose(-1, -2) / math.sqrt(self.key_comm_size))
-
+        # replicate mask for each attention head
         mask = [mask for _ in range(self.num_comm_heads)]
         mask = torch.stack(mask, dim=1)
-        #attention_scores = attention_scores * mask.unsqueeze(-1)
+        # mask to get only the active modules
+        attention_scores = torch.matmul(q, k.transpose(-1, -2) / math.sqrt(self.key_comm_size))
         attention_scores = attention_scores * mask
 
         # standard attention with dropout
