@@ -134,7 +134,7 @@ def run(args):
         args.input_size, args.device,
         args.num_units, args.active_units,
         args.use_input_attention, args.num_input_heads, args.key_input_size, args.query_input_size, args.value_input_size, args.input_dropout,
-        args.use_comm_attention, args.num_comm_heads, args.key_comm_size, args.query_comm_size, args.value_comm_size, args.comm_dropout, args.alpha,
+        args.use_comm_attention, args.num_comm_heads, args.key_comm_size, args.query_comm_size, args.value_comm_size, args.comm_dropout, args.alpha, args.use_value_comm,
         args.hidden_size, args.input_scaling, args.spectral_radius, args.leaky
     )
     n_params = sum(p.numel() for p in model.parameters())
@@ -190,6 +190,11 @@ if __name__ == '__main__':
     rim_args.add_argument('--value_comm_size', type=int, default=100)
     rim_args.add_argument('--comm_dropout', type=float, default=0.1)
     rim_args.add_argument('--alpha', type=float, default=None)
+    rim_args.add_argument('--no_use_value_comm', action='store_false', dest='use_value_comm')
+    rim_args.add_argument('--use_value_comm', action='store_true')
+
+    rim_args.add_argument('--no_normalize', action='store_false', dest='normalize')
+    rim_args.add_argument('--normalize', action='store_true')
 
     # ESN arguments
     esn_args = parser.add_argument_group('ESN arguments')

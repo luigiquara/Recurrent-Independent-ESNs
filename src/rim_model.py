@@ -45,7 +45,7 @@ class RIM(nn.Module):
         self, input_size, device,
         num_units, active_units,
         use_input_attention, num_input_heads, key_input_size, query_input_size, value_input_size, input_dropout,
-        use_comm_attention, num_comm_heads, key_comm_size, query_comm_size, value_comm_size, comm_dropout, alpha,
+        use_comm_attention, num_comm_heads, key_comm_size, query_comm_size, value_comm_size, comm_dropout, alpha, use_value_comm,
         hidden_size, input_scaling, spectral_radius, leaky
     ):
 
@@ -63,6 +63,7 @@ class RIM(nn.Module):
         self.value_comm_size = value_comm_size
         self.query_comm_size = query_comm_size
         self.alpha = alpha
+        self.use_value_comm = use_value_comm # if False, remove value_comm matrix
         self.use_input_attention = use_input_attention
         self.use_comm_attention = use_comm_attention
         self.device = device
@@ -84,7 +85,7 @@ class RIM(nn.Module):
 
         # define communication attention layers
         self.comm_key = GroupLinearLayer(hidden_size, num_comm_heads * key_comm_size, num_units)
-        self.comm_value = GroupLinearLayer(hidden_size, num_comm_heads * value_comm_size, num_units, normalize=True)
+        if self.use_value_comm: self.comm_value = GroupLinearLayer(hidden_size, num_comm_heads * value_comm_size, num_units, normalize=True)
         self.comm_query = GroupLinearLayer(hidden_size, num_comm_heads * query_comm_size, num_units)
         self.communication_attention_dropout = nn.Dropout(p = comm_dropout)
         # needed to get the right shapes
@@ -125,7 +126,7 @@ class RIM(nn.Module):
         if self.use_input_attention:
             att_x, mask = self.input_attention(x, hs)
         else:
-            att_x = x
+            att_x = x.repeat(self.num_units, 1)
             mask = torch.ones(x.shape[0], self.num_units).to(self.device)
 
         # listify the input and the hs
@@ -188,12 +189,21 @@ class RIM(nn.Module):
 
     def communication_attention(self, hs, mask, alpha):
         k = self.view_multihead(self.comm_key(hs), self.num_comm_heads, self.key_comm_size)
-        v = self.view_multihead(self.comm_value(hs), self.num_comm_heads, self.value_comm_size)
         q = self.view_multihead(self.comm_query(hs), self.num_comm_heads, self.query_comm_size)
+
+        if self.use_value_comm:
+            v = self.view_multihead(self.comm_value(hs), self.num_comm_heads, self.value_comm_size)
+        else:
+            v = hs
+
 
         # mask to get only the active modules
         attention_scores = torch.matmul(q, k.transpose(-1, -2) / math.sqrt(self.key_comm_size))
-        attention_scores = attention_scores * mask.unsqueeze(-1)
+
+        mask = [mask for _ in range(self.num_comm_heads)]
+        mask = torch.stack(mask, dim=1)
+        #attention_scores = attention_scores * mask.unsqueeze(-1)
+        attention_scores = attention_scores * mask
 
         # standard attention with dropout
         attention_scores = F.softmax(attention_scores, dim = -1)
