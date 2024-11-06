@@ -111,8 +111,23 @@ class RIM(nn.Module):
         x = x.float().squeeze().to(self.device)
         x = torch.split(x, 1, 1)
 
-        for xt in x:
+        hs_history = []
+        for i, xt in enumerate(x):
             hs = self.single_timestep_forward(xt, hs)
+
+            hs_history.append(hs.detach().cpu())
+            try:
+                assert not torch.isnan(hs).any().item(), f'hs NaN after {i} timesteps'
+            except:
+                import matplotlib.pyplot as plt
+
+                hs_history = torch.stack(hs_history).squeeze()
+                hs_history = torch.mean(hs_history, dim=1)
+                hs_history = torch.mean(hs_history, dim=-1)
+                plt.plot(hs_history)
+                plt.savefig('hs_history')
+
+                raise
 
         hs = hs.view(hs.shape[0], -1) # concatenate hs of all units
         y_pred = self.readout(hs)
@@ -197,7 +212,7 @@ class RIM(nn.Module):
 
         if self.use_value_comm:
             v = self.view_multihead(self.comm_value(hs), self.num_comm_heads, self.value_comm_size)
-            breakpoint()
+
         # remove value_comm matrix
         # i.e. it is unitary matrix and it's not updated during training
         else:

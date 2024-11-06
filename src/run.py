@@ -59,7 +59,7 @@ def train(model, train_loader, val_loaders, loss_fn, opt, epochs, device, log, s
 
             iter_ctr += 1.0
             ctr += 1
-
+        
         # evaluate on validation data
         for img_size, val_loader in val_loaders.items():
             print(f'Evaluating on {img_size}')
